@@ -4,11 +4,14 @@ import xbmcaddon
 import sys
 import urllib, urllib2
 import re
+import showEpisode
 
 addon = xbmcaddon.Addon(id='plugin.video.thepunkeffect')
 
 thisPlugin = int(sys.argv[1])
+
 baseLink = "http://thepunkeffect.com/"
+recentLink = "http://thepunkeffect.com/?paged=1"
 
 #3090 - The Weekly Effect
 hideMenuItem = ["3090"]
@@ -20,18 +23,6 @@ _regex_extractMenuSub = re.compile('<ul class="sub-menu">');
 _regex_extractMenuSubEnd = re.compile("</ul>");
 
 _regex_extractEpisodes = re.compile('<li class=".*?">.*?<div class="entry-thumbnails"><a class="entry-thumbnails-link" href="(.*?)"><img.*?src="(.*?)".*?/></a></div><h3 class="entry-title"><a href=".*?" rel="bookmark">(.*?)</a></h3>.*?</div>(.*?)<p class="quick-read-more">', re.DOTALL)
-_regex_extractEpisodeBlipTv = re.compile("(http://blip.tv/play/.*?)(.html|\")");
-_regex_extractEpisodeYouTubeId = re.compile("http://www.youtube.com/(embed|v)/(.*?)(\"|\?|\ |&)");
-_regex_extractEpisodeDorkly = re.compile("http://www.dorkly.com/(e/|moogaloop/noobtube.swf\?clip_id=)([0-9]*)")
-_regex_extractEpisodeSpringboard = re.compile("\.springboardplatform\.com/mediaplayer/springboard/video/(.*?)/(.*?)/(.*?)/")
-
-_regex_extractEpisodeDorklyVideo = re.compile("<file><!\[CDATA\[(.*?)\]\]></file>")
-
-_regex_extractVideoSpringboardStream = re.compile("<media:content duration=\"[0-9]*?\" medium=\"video\" bitrate=\"[0-9]*?\" fileSize=\"[0-9]*?\" url=\"(.*?)\" type=\".*?\" />");
-
-#blip.tv
-_regex_extractVideoFeedURL = re.compile("file=(.*?)&", re.DOTALL);
-_regex_extractVideoFeedURL2 = re.compile("file=(.*)", re.DOTALL);
 
 def mainPage():
     global thisPlugin
@@ -45,6 +36,9 @@ def subMenu(level1=0, level2=0):
     
     if level1 == 0:
         menu = mainMenu
+        
+        menu_name = "Recent videos"
+        addDirectoryItem(menu_name, {"action" : "show", "link": recentLink})
     elif level2 == 0:
         menu = mainMenu[int(level1)]['children']
     else:
@@ -107,73 +101,10 @@ def showPage(link):
 
         addDirectoryItem(episod_title, {"action" : "episode", "link": episode_link}, episode_img, False)
     xbmcplugin.endOfDirectory(thisPlugin)
-    
 
-def showEpisodeBip(url):    
-    #GET the 301 redirect URL
-    req = urllib2.Request(url)
-    response = urllib2.urlopen(req)
-    fullURL = response.geturl()
-    
-    feedURL = _regex_extractVideoFeedURL.search(fullURL)
-    if feedURL is None:
-        feedURL = _regex_extractVideoFeedURL2.search(fullURL)
-    feedURL = urllib.unquote(feedURL.group(1))
-    
-    blipId = feedURL[feedURL.rfind("/") + 1:]
-    
-    stream_url = "plugin://plugin.video.bliptv/?action=play_video&videoid=" + blipId
-    item = xbmcgui.ListItem(path=stream_url)
-    return xbmcplugin.setResolvedUrl(thisPlugin, True, item)
-
-def showEpisodeYoutube(youtubeID):
-    stream_url = "plugin://plugin.video.youtube/?action=play_video&videoid=" + youtubeID
-    item = xbmcgui.ListItem(path=stream_url)
-    xbmcplugin.setResolvedUrl(thisPlugin, True, item)
-    return False
-
-def showEpisodeDorkly(dorklyID):
-    feedUrl = "http://www.dorkly.com/moogaloop/video/"+dorklyID
-    feedPage = load_page(feedUrl)
-    videoItem = _regex_extractEpisodeDorklyVideo.search(feedPage)
-    if videoItem is not None:
-        stream_url = videoItem.group(1)
-        item = xbmcgui.ListItem(path=stream_url)
-        xbmcplugin.setResolvedUrl(thisPlugin, True, item)
-    return False
-    
-def showEpisodeSpringboard(videoItem):
-    siteId = videoItem.group(2)
-    contentId = videoItem.group(3)
-    feedUrl = "http://cms.springboard.gorillanation.com/xml_feeds_advanced/index/" + siteId + "/rss3/" + contentId + "/"
-    feed = load_page(feedUrl)
-    feedItem = _regex_extractVideoSpringboardStream.search(feed);
-    stream_url = feedItem.group(1)
-    item = xbmcgui.ListItem(path=stream_url)
-    xbmcplugin.setResolvedUrl(thisPlugin, True, item)
-    return False
-
-def showEpisode(link):
-    episode_page = load_page(urllib.unquote(link))
-
-    videoItem = _regex_extractEpisodeBlipTv.search(episode_page)
-    if videoItem is not None:
-        videoLink = videoItem.group(1)
-        showEpisodeBip(videoLink)
-    else:
-        videoItem = _regex_extractEpisodeYouTubeId.search(episode_page)
-        if videoItem is not None:
-            youTubeId = videoItem.group(2)
-            showEpisodeYoutube(youTubeId)
-        else:
-            videoItem = _regex_extractEpisodeDorkly.search(episode_page)
-            if videoItem is not None:
-                dorklyID = videoItem.group(2)
-                showEpisodeDorkly(dorklyID)
-            else:
-                videoItem = _regex_extractEpisodeSpringboard.search(episode_page)
-                if videoItem is not None:
-                    showEpisodeSpringboard(videoItem);
+def playEpisode(url):
+    episode_page = load_page(urllib.unquote(url))
+    showEpisode.showEpisode(episode_page)
 
 def load_page(url):
     print url
@@ -227,11 +158,9 @@ else:
     elif params['action'] == "subsubmenu":
         levels = urllib.unquote(params['link']).split(";")
         subMenu(levels[0], levels[1])
-    elif params['action'] == "recent":
-        recentPage()
     elif params['action'] == "episode":
         print "Episode"
-        showEpisode(params['link'])
+        playEpisode(params['link'])
     else:
         mainPage()
 
