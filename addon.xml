@@ -13,6 +13,7 @@
     <provides>video</provides>
   </extension>
   <extension point="xbmc.addon.metadata">
+    <language>en</language>
     <platform>all</platform>
     <summary lang="en">thepunkeffect.com</summary>
     <description lang="en">Pat the NES Punk</description>
