@@ -6,6 +6,8 @@ import urllib, urllib2
 import re
 import showEpisode
 
+#http://thepunkeffect.com/?s=test
+
 addon = xbmcaddon.Addon(id='plugin.video.thepunkeffect')
 
 thisPlugin = int(sys.argv[1])
@@ -23,6 +25,8 @@ _regex_extractMenuSub = re.compile('<ul class="sub-menu">');
 _regex_extractMenuSubEnd = re.compile("</ul>");
 
 _regex_extractEpisodes = re.compile('<li class=".*?">.*?<div class="entry-thumbnails"><a class="entry-thumbnails-link" href="(.*?)"><img.*?src="(.*?)".*?/></a></div><h3 class="entry-title"><a href=".*?" rel="bookmark">(.*?)</a></h3>.*?</div>(.*?)<p class="quick-read-more">', re.DOTALL)
+
+_regex_extractShowMore = re.compile('<div class="floatleft"><a href="(.*?)" >&laquo; Older Entries</a></div>')
 
 def mainPage():
     global thisPlugin
@@ -65,7 +69,6 @@ def extractMenu(page):
     sub = 0
     parent = -1;
     for line in menu.split("\n"):
-        #print line
         if _regex_extractMenuSub.search(line) is not None:
             sub = sub + 1
         if _regex_extractMenuSubEnd.search(line) is not None:
@@ -89,8 +92,6 @@ def showPage(link):
     global thisPlugin
     page = load_page(urllib.unquote(link))
     
-    #print page
-    
     episodes = list(_regex_extractEpisodes.finditer(page))
     
     for episode in episodes:
@@ -100,6 +101,11 @@ def showPage(link):
         episode_teaser = remove_html_special_chars(episode.group(4).strip())
 
         addDirectoryItem(episod_title, {"action" : "episode", "link": episode_link}, episode_img, False)
+    
+    showMore = _regex_extractShowMore.search(page)
+    if showMore is not None:
+        addDirectoryItem("Show more", {"action" : "show", "link": showMore.group(1)})
+    
     xbmcplugin.endOfDirectory(thisPlugin)
 
 def playEpisode(url):
