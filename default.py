@@ -41,7 +41,7 @@ def subMenu(level1=0, level2=0):
     if level1 == 0:
         menu = mainMenu
         
-        menu_name = "Recent videos"
+        menu_name = addon.getLocalizedString(30000)
         addDirectoryItem(menu_name, {"action" : "show", "link": recentLink})
     elif level2 == 0:
         menu = mainMenu[int(level1)]['children']
@@ -104,7 +104,8 @@ def showPage(link):
     
     showMore = _regex_extractShowMore.search(page)
     if showMore is not None:
-        addDirectoryItem("Show more", {"action" : "show", "link": showMore.group(1)})
+        menu_name = addon.getLocalizedString(30001)
+        addDirectoryItem(menu_name, {"action" : "show", "link": showMore.group(1)})
     
     xbmcplugin.endOfDirectory(thisPlugin)
 
