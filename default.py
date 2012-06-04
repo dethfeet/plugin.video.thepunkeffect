@@ -17,6 +17,7 @@ recentLink = "http://thepunkeffect.com/?paged=1"
 
 #3090 - The Weekly Effect
 hideMenuItem = ["3090"]
+hideTopicsStartWith = ["The Weekly Effect","A Jumps B Shoots"]
 
 _regex_extractMenu = re.compile("<div id=\"nav\">(.*?)<ul class=\"quick-nav clearfix\">", re.DOTALL);
 
@@ -97,14 +98,21 @@ def showPage(link):
     for episode in episodes:
         episode_link = episode.group(1)
         episode_img = episode.group(2)
-        episod_title = remove_html_special_chars(episode.group(3))
+        episode_title = remove_html_special_chars(episode.group(3))
         episode_teaser = remove_html_special_chars(episode.group(4).strip())
-
-        addDirectoryItem(episod_title, {"action" : "episode", "link": episode_link}, episode_img, False)
+        
+        showTopic = True
+        for hide in hideTopicsStartWith:
+            startWith = episode_title[0:len(hide)]
+            if startWith == hide:
+                showTopic = False
+            
+        if showTopic:
+            addDirectoryItem(episode_title, {"action" : "episode", "link": episode_link}, episode_img, False)
     
     showMore = _regex_extractShowMore.search(page)
     if showMore is not None:
-        menu_name = addon.getLocalizedString(30001)
+        menu_name = addon.getLocalizedString(30002)
         addDirectoryItem(menu_name, {"action" : "show", "link": showMore.group(1)})
     
     xbmcplugin.endOfDirectory(thisPlugin)
@@ -130,8 +138,12 @@ def addDirectoryItem(name, parameters={}, pic="", folder=True):
 
 def remove_html_special_chars(inputStr):
     inputStr = inputStr.replace("&#8211;", "-")
+    inputStr = inputStr.replace("&#8216;", "'")
     inputStr = inputStr.replace("&#8217;", "'")#\x92
+    inputStr = inputStr.replace("&#8220;","\"")#\x92
+    inputStr = inputStr.replace("&#8221;","\"")#\x92
     inputStr = inputStr.replace("&#8230;", "'")
+   
     inputStr = inputStr.replace("&#039;", chr(39))# '
     inputStr = inputStr.replace("&#038;", chr(38))# &
     return inputStr
