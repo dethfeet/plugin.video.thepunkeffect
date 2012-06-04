@@ -1,4 +1,4 @@
-#v 0.0.1
+#v 0.0.2
 import re
 import xbmcplugin
 import xbmcgui
@@ -19,9 +19,17 @@ def showEpisode(episode_page):
         {"function":showEpisodeDorkly, "regex":"http://www.dorkly.com/(e/|moogaloop/noobtube.swf\?clip_id=)([0-9]*)"},
         {"function":showEpisodeSpringboard, "regex":"\.springboardplatform\.com/mediaplayer/springboard/video/(.*?)/(.*?)/(.*?)/"},
         {"function":showEpisodeSpringboard, "regex":"\\$sb\\(\"(.*?)\",{\"sbFeed\":{\"partnerId\":(.*?),\"type\":\"video\",\"contentId\":(.*?),\"cname\":\"(.*?)\"},\"style\":{\"width\":.*?,\"height\":.*?}}\\);"},
+        #http://thepunkeffect.com/?p=5830
+        {"function":showEpisodeYoutube, "regex":"\\$sb\\(\"(.*?)\",{\"sbFeed\":{\"partnerId\":.*?,\"type\":\"youtube\",\"contentId\":\"(.*?)\",\"cname\":\"(.*?)\"},\"style\":{\"width\":.*?,\"height\":.*?}}\\);"},
+        {"function":showEpisodeYoutube, "regex":"\.springboardplatform\.com/mediaplayer/springboard/youtube/(.*?)/(.*?)/"}, 
         {"function":showEpisodeDaylimotion, "regex":"(http://www.dailymotion.com/video/.*?)_"},          
         {"function":showEpisodeGametrailers, "regex":"<a href=\"(http://www.gametrailers.com/video/angry-video-screwattack/(.*))\" target=\"_blank\">"},
-        {"function":showEpisodeSpike, "regex":"<a href=\"(http://www.spike.com/.*?)\""},               
+        {"function":showEpisodeSpike, "regex":"<a href=\"(http://www.spike.com/.*?)\""},
+        #http://thepunkeffect.com/?p=5639
+        {"function":showEpisodePlaywire, "regex":"<iframe src=\"(http://cdn.playwire.com/(.*)/embed/(.*).html)\""},
+        #http://cdn.playwire.com/11043/embed/80834.html
+        {"function":showKickstarter, "regex":"http://www.kickstarter.com/projects/.*/widget/video.html"},
+        {"function":showEpisodeSpringboardEncrypted, "regex":"<param name=\"movie\" value=\"http://cdn.springboard.gorillanation.com/storage/xplayer/yo033.swf\"><param name=\"flashvars\" value=\"e=(.*?)&#038;"}
     )
     
     for provider in providers:
@@ -30,6 +38,38 @@ def showEpisode(episode_page):
         if videoItem is not None:
             return provider['function'](videoItem)
 
+def showKickstarter(videoItem):
+    url = videoItem.group(0)
+    page = showEpisodeLoadPage(url)
+    
+    stream_url = re.compile("file=(.*?)&amp;").search(page).group(1)
+    stream_url = urllib.unquote(stream_url)
+    
+    item = xbmcgui.ListItem(path=stream_url)
+    return xbmcplugin.setResolvedUrl(thisPlugin, True, item)
+
+def showEpisodePlaywire(videoItem):
+    configUrl = "http://cdn.playwire.com/%s/embed/%s.xml"%(videoItem.group(2),videoItem.group(3))
+    page = showEpisodeLoadPage(configUrl)
+    
+    f4mUrl = re.compile("<src>(.*?)</src>").search(page).group(1)#http://cdn.playwire.com/11043/hd-80834.f4m
+    
+    page = showEpisodeLoadPage(f4mUrl)
+    
+    baseUrl = re.compile("<baseURL>(.*?)</baseURL>").search(page).group(1)
+    mediaUrls = re.compile("<media.*?url=\"(.*?)\".*?height=\"(.*?)\"/>")
+    
+    height = 0
+    for mediaUrl in mediaUrls.finditer(page):
+        if height < int(mediaUrl.group(2)):
+            height = int(mediaUrl.group(2))
+            playPath = mediaUrl.group(1)
+    
+    stream_url = baseUrl + ' playpath=' + playPath
+    item = xbmcgui.ListItem(path=stream_url)
+    return xbmcplugin.setResolvedUrl(thisPlugin, True, item)
+
+    
 def showEpisodeBip(videoItem):
     _regex_extractVideoFeedURL = re.compile("file=(.*?)&", re.DOTALL);
     _regex_extractVideoFeedURL2 = re.compile("file=(.*)", re.DOTALL);
@@ -90,6 +130,36 @@ def showEpisodeSpringboard(videoItem):
     item = xbmcgui.ListItem(path=stream_url)
     xbmcplugin.setResolvedUrl(thisPlugin, True, item)
     return False
+
+def showEpisodeSpringboardEncrypted(videoItem):
+    data = videoItem.group(1).decode("hex")
+    key = ""
+    
+    #RC4 - http://de.wikipedia.org/wiki/RC4
+    L = len(key)
+    s = []
+    for i in range(256):
+        s.append(i)
+    j = 0
+    for i in range(256):
+        j = (j + s[i] + ord(key[i % L])) % 256
+        s[i], s[j] = s[j], s[i]
+    
+    schl = ""
+    X = len(data)
+    i, j = 0, 0
+    for n in range(X):
+        i = (i + 1) % 256
+        j = (j + s[i]) % 256
+        s[i], s[j] = s[j], s[i]
+        zufallszahl = s[(s[i] + s[j]) % 256]
+        schl = schl + chr(zufallszahl ^ ord(data[n]))
+        
+        
+    #http://cms.springboard.gorillanation.com/xml_feeds_advanced/index/71/3/272521/0/0/0/0/0/0/0/
+    videoItem = re.compile("(.*?)/index/(.*?)/.*?/(.*?)/.*?").search(schl)
+    return showEpisodeSpringboard(videoItem)
+
 
 def showEpisodeDaylimotion(videoItem):
     url = videoItem.group(1)
