@@ -4,11 +4,9 @@
        version="0.0.1"
        provider-name="dethfeet">
   <requires>
-    <import addon="plugin.video.bliptv" version="0.0.4"/>
-    <import addon="xbmc.python" version="2.0"/>
-    <import addon="plugin.video.youtube" version="2.9.1"/>
-    <import addon="script.module.urlresolver" version="1.0.1"/>
-  </requires>
+   <import addon="xbmc.python" version="2.0"/>
+    <import addon="xbmc.gui" version="2.11"/>
+   </requires>
     <extension point="xbmc.python.pluginsource" library="default.py">
     <provides>video</provides>
   </extension>
