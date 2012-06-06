@@ -113,7 +113,8 @@ def showPage(link):
     showMore = _regex_extractShowMore.search(page)
     if showMore is not None:
         menu_name = addon.getLocalizedString(30002)
-        addDirectoryItem(menu_name, {"action" : "show", "link": showMore.group(1)})
+        menu_link = showMore.group(1).replace("&#038;","&")
+        addDirectoryItem(menu_name, {"action" : "show", "link": menu_link})
     
     xbmcplugin.endOfDirectory(thisPlugin)
 
