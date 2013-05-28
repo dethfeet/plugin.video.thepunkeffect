@@ -19,17 +19,26 @@ def showEpisode(episode_page):
         {"function":showEpisodeDorkly, "regex":"http://www.dorkly.com/(e/|moogaloop/noobtube.swf\?clip_id=)([0-9]*)"},
         {"function":showEpisodeSpringboard, "regex":"\.springboardplatform\.com/mediaplayer/springboard/video/(.*?)/(.*?)/(.*?)/"},
         {"function":showEpisodeSpringboard, "regex":"\\$sb\\(\"(.*?)\",{\"sbFeed\":{\"partnerId\":(.*?),\"type\":\"video\",\"contentId\":(.*?),\"cname\":\"(.*?)\"},\"style\":{\"width\":.*?,\"height\":.*?}}\\);"},
+        {"function":showEpisodeSpringboardBitLy, "regex":"<script.*?src=\"http://www.springboardplatform.com/js/overlay\".*? id=\".*?\".*?src=\"(.*?)\".*?</iframe>"},
         #http://thepunkeffect.com/?p=5830
         {"function":showEpisodeYoutube, "regex":"\\$sb\\(\"(.*?)\",{\"sbFeed\":{\"partnerId\":.*?,\"type\":\"youtube\",\"contentId\":\"(.*?)\",\"cname\":\"(.*?)\"},\"style\":{\"width\":.*?,\"height\":.*?}}\\);"},
         {"function":showEpisodeYoutube, "regex":"\.springboardplatform\.com/mediaplayer/springboard/youtube/(.*?)/(.*?)/"}, 
         {"function":showEpisodeDaylimotion, "regex":"(http://www.dailymotion.com/video/.*?)_"},          
         {"function":showEpisodeGametrailers, "regex":"<a href=\"(http://www.gametrailers.com/video/angry-video-screwattack/(.*))\" target=\"_blank\">"},
+        #http://cinemassacre.com/2012/07/07/mortal-kombat-memories/
+        {"function":showEpisodeGametrailers2, "regex":"<a href=\"(http://www.gametrailers.com/videos/.*/.*?)\" target=\"_blank\">"},
         {"function":showEpisodeSpike, "regex":"<a href=\"(http://www.spike.com/.*?)\""},
         #http://thepunkeffect.com/?p=5639
+        #http://thepunkeffect.com/?p=4217
         {"function":showEpisodePlaywire, "regex":"<iframe src=\"(http://cdn.playwire.com/(.*)/embed/(.*).html)\""},
         #http://cdn.playwire.com/11043/embed/80834.html
         {"function":showKickstarter, "regex":"http://www.kickstarter.com/projects/.*/widget/video.html"},
-        {"function":showEpisodeSpringboardEncrypted, "regex":"<param name=\"movie\" value=\"http://cdn.springboard.gorillanation.com/storage/xplayer/yo033.swf\"><param name=\"flashvars\" value=\"e=(.*?)&#038;"}
+        #http://thepunkeffect.com/?p=1690
+        {"function":showEpisodeSpringboardEncrypted, "regex":"<param name=\"movie\" value=\"http://cdn.springboard.gorillanation.com/storage/xplayer/yo033.swf\"><param name=\"flashvars\" value=\"e=(.*?)&#038;"},
+        #http://thepunkeffect.com/?p=5966
+        {"function":showEpisodeTeamcoco, "regex":"http://teamcoco.com/embed/v/([0-9]*)"},
+        #http://thepunkeffect.com/?p=4930
+        {"function":showEpisodeCollegeHumor,"regex":"http://www.collegehumor.com/e/([0-9]*)"}
     )
     
     for provider in providers:
@@ -57,10 +66,11 @@ def showEpisodePlaywire(videoItem):
     page = showEpisodeLoadPage(f4mUrl)
     
     baseUrl = re.compile("<baseURL>(.*?)</baseURL>").search(page).group(1)
-    mediaUrls = re.compile("<media.*?url=\"(.*?)\".*?height=\"(.*?)\"/>")
+    mediaUrls = re.compile("<media.*?url=\"(.*?)\".*?height=\"([0-9]*).*?/>")
     
     height = 0
     for mediaUrl in mediaUrls.finditer(page):
+        print int(mediaUrl.group(2))
         if height < int(mediaUrl.group(2)):
             height = int(mediaUrl.group(2))
             playPath = mediaUrl.group(1)
@@ -73,6 +83,7 @@ def showEpisodePlaywire(videoItem):
 def showEpisodeBip(videoItem):
     _regex_extractVideoFeedURL = re.compile("file=(.*?)&", re.DOTALL);
     _regex_extractVideoFeedURL2 = re.compile("file=(.*)", re.DOTALL);
+    _regex_extractVideoFeedURL3 = re.compile("data-episode-id=\"(.*?)\"", re.DOTALL);
 
     videoLink = videoItem.group(1)
     
@@ -84,9 +95,13 @@ def showEpisodeBip(videoItem):
     feedURL = _regex_extractVideoFeedURL.search(fullURL)
     if feedURL is None:
         feedURL = _regex_extractVideoFeedURL2.search(fullURL)
-    feedURL = urllib.unquote(feedURL.group(1))
     
-    blipId = feedURL[feedURL.rfind("/") + 1:]
+    if feedURL is None:
+        page = showEpisodeLoadPage(videoLink) 
+        blipId = _regex_extractVideoFeedURL3.search(page).group(1)
+    else:#This still needed for older links
+        feedURL = urllib.unquote(feedURL.group(1))
+        blipId = feedURL[feedURL.rfind("/") + 1:]
     
     stream_url = "plugin://plugin.video.bliptv/?action=play_video&videoid=" + blipId
     item = xbmcgui.ListItem(path=stream_url)
@@ -133,7 +148,7 @@ def showEpisodeSpringboard(videoItem):
 
 def showEpisodeSpringboardEncrypted(videoItem):
     data = videoItem.group(1).decode("hex")
-    key = ""
+    key = "sPr1ngB0@rd"
     
     #RC4 - http://de.wikipedia.org/wiki/RC4
     L = len(key)
@@ -160,6 +175,18 @@ def showEpisodeSpringboardEncrypted(videoItem):
     videoItem = re.compile("(.*?)/index/(.*?)/.*?/(.*?)/.*?").search(schl)
     return showEpisodeSpringboard(videoItem)
 
+def showEpisodeSpringboardBitLy(videoItem):
+    videoLink = videoItem.group(1)
+    #GET the 301 redirect URL
+    req = urllib2.Request(videoLink)
+    response = urllib2.urlopen(req)
+    fullURL = response.geturl()
+    
+    _regex_extractVideoSpringboard = re.compile("(embed_iframe)/(.*?)/video/(.*?)/(.*?)/.*?")
+    
+    videoItem = _regex_extractVideoSpringboard.search(fullURL)
+    
+    return showEpisodeSpringboard(videoItem)
 
 def showEpisodeDaylimotion(videoItem):
     url = videoItem.group(1)
@@ -168,13 +195,25 @@ def showEpisodeDaylimotion(videoItem):
     xbmcplugin.setResolvedUrl(thisPlugin, True, item)
     return False
 
-def showEpisodeGametrailers(videoItem):
-    _regex_extractVideoGametrailersXML = re.compile("<media:content type=\"text/xml\" medium=\"video\" isDefault=\"true\" duration=\"[0-9]{1,4}\" url=\"(.*?)\"/>")
+def showEpisodeGametrailers2(videoItem):
+    page = showEpisodeLoadPage(videoItem.group(1))
+    
+    extractMgid = re.compile("data-mgid=\"(.*?)\"")
+    
+    mgid = extractMgid.search(page).group(1)
+    
+    urlXml1 = "http://www.gametrailers.com/feeds/mrss?uri="+mgid
+    showEpisodeGametrailers(None,urlXml=urlXml1)
+
+def showEpisodeGametrailers(videoItem,urlXml=None):
+    _regex_extractVideoGametrailersXML = re.compile("<media:content type=\"text/xml\" medium=\"video\".*?url=\"(.*?)\"")
     _regex_extractVideoGametrailersStreamURL = re.compile("<src>(.*?)</src>")
 
-    url = videoItem.group(1)
-    videoId = videoItem.group(2)
-    urlXml = "http://www.gametrailers.com/neo/?page=xml.mediaplayer.Mrss&mgid=mgid%3Amoses%3Avideo%3Agametrailers.com%3A" + videoId + "&keyvalues={keyvalues}"
+    if urlXml is None:
+        url = videoItem.group(1)
+        videoId = videoItem.group(2)
+    
+        urlXml = "http://www.gametrailers.com/neo/?page=xml.mediaplayer.Mrss&mgid=mgid%3Amoses%3Avideo%3Agametrailers.com%3A" + videoId + "&keyvalues={keyvalues}"
     xml1 = showEpisodeLoadPage(urlXml)
     urlXml = _regex_extractVideoGametrailersXML.search(xml1).group(1)
     urlXml = urlXml.replace("&amp;", "&")
@@ -218,7 +257,34 @@ def showEpisodeSpike(videoItem):
         item = xbmcgui.ListItem(path=stream_url)
         xbmcplugin.setResolvedUrl(thisPlugin, True, item)
         return False
+
+def showEpisodeTeamcoco(videoItem):
+    #http://teamcoco.com/embed/v/36637
+    xmlUrl = "http://teamcoco.com/cvp/2.0/"+videoItem.group(1)+".xml"
+    xmlPage = showEpisodeLoadPage(xmlUrl)
     
+    _regex_ExtractStreamUrl = re.compile("<file.*?bitrate=\"([0-9]*)\".*?>(.*?)</file>")
+    
+    streamUrl = "";
+    curBitRate = 0
+    for streamItem in _regex_ExtractStreamUrl.finditer(xmlPage):
+        if curBitRate < int(streamItem.group(1)):
+            curBitRate = int(streamItem.group(1))
+            streamUrl= streamItem.group(2)
+    
+    item = xbmcgui.ListItem(path=streamUrl)
+    xbmcplugin.setResolvedUrl(thisPlugin, True, item)
+
+def showEpisodeCollegeHumor(videoItem):
+    print "test"
+    xmlUrl = "http://www.collegehumor.com/moogaloop/video/"+videoItem.group(1)
+    _regex_extractStreamUrl = re.compile("<file>.*?<!\[CDATA\[(.*?)\]",re.DOTALL)
+    xmlPage = showEpisodeLoadPage(xmlUrl)
+    streamUrl = _regex_extractStreamUrl.search(xmlPage).group(1)
+    
+    item = xbmcgui.ListItem(path=streamUrl)
+    xbmcplugin.setResolvedUrl(thisPlugin, True, item)
+
 def showEpisodeLoadPage(url):
     print url
     req = urllib2.Request(url)
