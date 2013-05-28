@@ -17,7 +17,7 @@ recentLink = "http://thepunkeffect.com/?paged=1"
 
 #3090 - The Weekly Effect
 hideMenuItem = ["3090"]
-hideTopicsStartWith = ["The Weekly Effect","A Jumps B Shoots"]
+hideTopicsStartWith = ["The Weekly Effect","A Jumps B Shoots","Overthinking It"]
 
 _regex_extractMenu = re.compile("<div id=\"nav\">(.*?)<ul class=\"quick-nav clearfix\">", re.DOTALL);
 
@@ -139,6 +139,7 @@ def addDirectoryItem(name, parameters={}, pic="", folder=True):
 
 def remove_html_special_chars(inputStr):
     inputStr = inputStr.replace("&#8211;", "-")
+    inputStr = inputStr.replace("&#8212;", "-")
     inputStr = inputStr.replace("&#8216;", "'")
     inputStr = inputStr.replace("&#8217;", "'")#\x92
     inputStr = inputStr.replace("&#8220;","\"")#\x92
